@@ -1,35 +1,35 @@
-
+ //İnternet ve aracı site için kullanacağımız kütüphaneler
 #include <ESP8266WiFi.h>
-
 #include "Adafruit_MQTT.h"
 #include "Adafruit_MQTT_Client.h"
+
 
 #define kapama            D2
 #define acma              D2
 
-#define WLAN_SSID       "Casper VIA_A1_1"             // MODEM ADI
-#define WLAN_PASS       "278c5e9fbb0c"        // MODEM ŞİFRESİ 
+//Bağlanacağımız ağ adı ve şifresi
+#define WLAN_SSID       "***"             // MODEM ADI
+#define WLAN_PASS       "***"        // MODEM ŞİFRESİ 
 
 /************************* Adafruit.io Setup *********************************/
+//MQTT temelli aracı site,sunucu, bilgileri 
+#define AIO_SERVER      "io.adafruit.com"                      //Bağlanacağımız Site Adı
+#define AIO_SERVERPORT  1883                                  //Standart Port (Bağlantı Portu)     
+#define AIO_USERNAME    "***"                             // ADAFRUİT.İO KULLANICI ADI
+#define AIO_KEY         "***"  // ADAFRUİT.İO ANAHTAR KODUMUZ
 
-#define AIO_SERVER      "io.adafruit.com"                      //Adafruit Server
-#define AIO_SERVERPORT  1883                                  //Standart Port     
-#define AIO_USERNAME    "deaath"                             // ADAFRUİT.İO KULLANICI ADI
-#define AIO_KEY         ""  // ADAFRUİT.İO ANAHTAR KODUMUZ
-
-//WIFI CLIENT
+//Ağ bağlantısı kurarken kullanacağımız bir wifi nesnesi oluşturuyoruz
 WiFiClient client;
-//IFTT sitesi ile bağlantı kurmamızı sağlayacak bir wifi objesi oluşturuyoruz
-
-//Aracı site ile bağlantı kurmamızı sağlayacak bir obje oluşturuyoruz
-//objenin bu bağlantıyı sağlarken kullanacağı değişkenleri beliritiyoruz
+ 
+//Aracı site ile bağlantı kurmamızı sağlayacak bir nesne oluşturuyoruz
+//nesnenin bu bağlantıyı sağlarken kullanacağı değişkenleri beliritiyoruz
 Adafruit_MQTT_Client mqtt(&client, AIO_SERVER, AIO_SERVERPORT, AIO_USERNAME, AIO_KEY);
 
-//
+//Aracı sitede abone olacağımız,kullanmak istediğimiz bilgilerin bulunduğu, konu başlıklarını atayacağımız değişkenleri oluşturuyoruz
 Adafruit_MQTT_Subscribe komut1 = Adafruit_MQTT_Subscribe(&mqtt, AIO_USERNAME"/feeds/kapama"); 
 Adafruit_MQTT_Subscribe komut2 = Adafruit_MQTT_Subscribe(&mqtt, AIO_USERNAME "/feeds/acma");
 
-
+//MQTT bağlantısı için kullandığımız fonksiyon
 void MQTT_connect();
 
 void setup() {
@@ -37,16 +37,15 @@ void setup() {
 
   pinMode(kapama, OUTPUT);
   pinMode(acma, OUTPUT);
- // pinMode(Relay3, OUTPUT);
- // pinMode(Relay4, OUTPUT);
+ 
   
-  // Connect to WiFi access point.
+  // WİFİ ye bağlanmaya çalışıyoruz
   Serial.println(); Serial.println();
   Serial.print("Connecting to ");
   Serial.println(WLAN_SSID);
 
 
-//Belirlediğimiz değişkenler sayesinde belirttiğimiz ağa bağlanıyoruz
+  //Belirlediğimiz değişkenler sayesinde belirttiğimiz ağa bağlanıyoruz
   WiFi.begin(WLAN_SSID, WLAN_PASS);
   while (WiFi.status() != WL_CONNECTED) {
     delay(500);
@@ -57,53 +56,45 @@ void setup() {
   Serial.println("WiFi connected");
   Serial.println("IP address: "); 
   Serial.println(WiFi.localIP());
+
+  //subscribe olduğumuz topic deki değerin ilk durumu (?)
+  mqtt.subscribe(&komut1);
+  mqtt.subscribe(&komut2);
  
-  mqtt.subscribe(&Light1);
- // mqtt.subscribe(&Light3);
-  mqtt.subscribe(&Light2);
- // mqtt.subscribe(&Light4);
 }
 
 void loop() {
- 
+  //MQTT fonsiyonundan gelen değeri kullanıyoruz
   MQTT_connect();
   
-
+  //Abone olduğumuz topiclere bir işaretçi tanımlaması
   Adafruit_MQTT_Subscribe *subscription;
+
+  //abonelik paketlerinin gelmesini bekliyoruz
+  //veri var mı
   while ((subscription = mqtt.readSubscription(200))) {
     Serial.print("kapı");
-    if (subscription == &Light1) {
+    if (subscription == &komut1) {
       Serial.print(F("acıldı: "));
-      Serial.println((char *)Light1.lastread);
-      int Light1_State = atoi((char *)Light1.lastread);
+      //son durumu char bir değişken olarak tanımladığımız komut1.lastread e kaydet
+      Serial.println((char *)komut1.lastread);
+      //int komut1_State = atoi((char *)komut1.lastread); (?)
       digitalWrite(kapama, HIGH);
       
     }
-    if (subscription == &Light2) {
+    if (subscription == &komut2) {
       Serial.print(F("kapandı : "));
-      Serial.println((char *)Light2.lastread);
-      int Light2_State = atoi((char *)Light2.lastread);
+      Serial.println((char *)komut2.lastread);
+      //int komut2_State = atoi((char *)komut2.lastread); (?)
       digitalWrite(acma, LOW);
     }
- /*   if (subscription == &Light3) {
-      Serial.print(F("Got: "));
-      Serial.println((char *)Light3.lastread);
-      int Light3_State = atoi((char *)Light3.lastread);
-      digitalWrite(Relay3, Light3_State);
-    }
-    if (subscription == &Light4) {
-      Serial.print(F("Got: "));
-      Serial.println((char *)Light4.lastread);
-      int Light4_State = atoi((char *)Light4.lastread);
-      digitalWrite(Relay4, Light4_State);
-      
-    } */
-  }
-
-  
+   }
 }
 
+//MQTT sunucu bağlantısı
+//MQTT ye bağlı olup olmadığımızın ayarlanması
 void MQTT_connect() {
+  //8 bitlik değişken (-128,+127)
   int8_t ret;
 
   if (mqtt.connected()) {
@@ -111,7 +102,7 @@ void MQTT_connect() {
   }
 
   Serial.print("Connecting to MQTT... ");
-
+  //8 bitlik pozitif değişken (0,255)
   uint8_t retries = 3;
   
   while ((ret = mqtt.connect()) != 0) {
